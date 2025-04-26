@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Book a Session</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; }
+    form { max-width: 400px; margin: auto; }
+    input, button, select { display: block; width: 100%; margin: 10px 0; padding: 10px; }
+    button { background-color: #28a745; color: white; border: none; cursor: pointer; }
+    button:hover { background-color: #218838; }
+    select option.booked { background-color: #ccc; color: #666; }
+  </style>
+</head>
+<body>
+
+  <h2>Book Your Session</h2>
+
+  <form id="bookingForm">
+    <input type="text" id="name" placeholder="Your Name" required />
+    <input type="email" id="email" placeholder="Your Email" required />
+    <input type="date" id="date" required />
+    <select id="time" required>
+      <option value="">Select a time slot</option>
+    </select>
+    <button type="submit">Book Now</button>
+  </form>
+
+  <p id="status"></p>
+
+  <script>
+    const form = document.getElementById('bookingForm');
+    const status = document.getElementById('status');
+    const dateInput = document.getElementById('date');
+    const timeSelect = document.getElementById('time');
+    let bookedSlots = [];
+
+    async function fetchBookedSlots() {
+      try {
+        const response = await fetch('https://script.google.com/macros/s/AKfycbxJudXR8oSEIW3Y-OK46j0zuCHO_5Y0RNfmbBaXPB4ERae-cQL_9KfBO6V0-6DFii-DxA/exec');
+        bookedSlots = await response.json();
+        console.log('Booked slots:', bookedSlots);
+      } catch (error) {
+        console.error('Failed to fetch booked slots:', error);
+      }
+    }
+
+    function generateTimeSlots() {
+      const slots = [];
+      let start = 9 * 60;  // Start at 9:00 AM
+      let end = 17 * 60;   // End at 5:00 PM
+
+      while (start < end) {
+        const hours = Math.floor(start / 60).toString().padStart(2, '0');
+        const minutes = (start % 60).toString().padStart(2, '0');
+        slots.push(`${hours}:${minutes}`);
+        start += 15; // 15 min interval
+      }
+      return slots;
+    }
+
+    function populateTimeOptions(selectedDate) {
+      const slots = generateTimeSlots();
+      timeSelect.innerHTML = '<option value="">Select a time slot</option>';
+
+      slots.forEach(slot => {
+        const option = document.createElement('option');
+        option.value = slot;
+        option.textContent = slot;
+
+        const isBooked = bookedSlots.some(b => b.date === selectedDate && b.time === slot);
+        if (isBooked) {
+          option.disabled = true;
+          option.classList.add('booked');
+          option.textContent += " (Booked)";
+        }
+
+        timeSelect.appendChild(option);
+      });
+    }
+
+    dateInput.addEventListener('change', () => {
+      const selectedDate = dateInput.value;
+      if (selectedDate) {
+        populateTimeOptions(selectedDate);
+      }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const data = {
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        date: document.getElementById('date').value,
+        time: document.getElementById('time').value
+      };
+
+      if (!data.time) {
+        status.textContent = "Please select a time slot.";
+        return;
+      }
+
+      status.textContent = "Sending...";
+
+      try {
+        const response = await fetch(
+          'https://script.google.com/macros/s/AKfycbxJudXR8oSEIW3Y-OK46j0zuCHO_5Y0RNfmbBaXPB4ERae-cQL_9KfBO6V0-6DFii-DxA/exec',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          }
+        );
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+          status.textContent = "Booking Submitted! Please check your email.";
+          form.reset();
+          await fetchBookedSlots(); // Refresh
+        } else {
+          status.textContent = "Error: " + (result.message || "Unknown error");
+        }
+      } catch (error) {
+        console.error(error);
+        status.textContent = "Something went wrong!";
+      }
+    });
+
+    async function init() {
+      await fetchBookedSlots();
+    }
+
+    init();
+  </script>
+
+</body>
+</html>
