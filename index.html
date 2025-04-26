@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,12 +5,12 @@
   <title>Book a Session</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 30px; }
-    form { max-width: 400px; margin: auto; }
-    input, button, select { display: block; width: 100%; margin: 10px 0; padding: 10px; }
+    form, .slots { max-width: 400px; margin: auto; }
+    input, button { display: block; width: 100%; margin: 10px 0; padding: 10px; }
     button { background-color: #28a745; color: white; border: none; cursor: pointer; }
     button:hover { background-color: #218838; }
-    #slotsList { margin-top: 20px; }
-    .booked-item { background: #f8d7da; padding: 8px; margin: 5px 0; border-radius: 5px; }
+    .slots { margin-top: 40px; }
+    .slot { padding: 5px; margin: 5px 0; border-bottom: 1px solid #ccc; }
   </style>
 </head>
 <body>
@@ -23,81 +21,25 @@
     <input type="text" id="name" placeholder="Your Name" required />
     <input type="email" id="email" placeholder="Your Email" required />
     <input type="date" id="date" required />
-    <select id="time" required>
-      <option value="">Select a time slot</option>
-    </select>
+    <input type="time" id="time" required />
     <button type="submit">Book Now</button>
   </form>
 
   <p id="status"></p>
 
-  <hr>
-
-  <button id="showSlotsButton">Show Booked Slots</button>
-  <div id="slotsList"></div>
+  <div class="slots">
+    <h3>Booked Slots</h3>
+    <button id="loadSlots">Show Booked Slots</button>
+    <div id="slotsList"></div>
+  </div>
 
   <script>
     const form = document.getElementById('bookingForm');
     const status = document.getElementById('status');
-    const dateInput = document.getElementById('date');
-    const timeSelect = document.getElementById('time');
-    const showSlotsButton = document.getElementById('showSlotsButton');
+    const loadSlotsBtn = document.getElementById('loadSlots');
     const slotsList = document.getElementById('slotsList');
 
-    let bookedSlots = [];
-
-    const scriptURL = 'https://script.google.com/macros/s/AKfycbxJudXR8oSEIW3Y-OK46j0zuCHO_5Y0RNfmbBaXPB4ERae-cQL_9KfBO6V0-6DFii-DxA/exec';
-
-    async function fetchBookedSlots() {
-      try {
-        const response = await fetch(scriptURL);
-        bookedSlots = await response.json();
-        console.log('Booked slots:', bookedSlots);
-      } catch (error) {
-        console.error('Failed to fetch booked slots:', error);
-      }
-    }
-
-    function generateTimeSlots() {
-      const slots = [];
-      let start = 9 * 60;  // Start at 9:00 AM
-      let end = 17 * 60;   // End at 5:00 PM
-
-      while (start < end) {
-        const hours = Math.floor(start / 60).toString().padStart(2, '0');
-        const minutes = (start % 60).toString().padStart(2, '0');
-        slots.push(`${hours}:${minutes}`);
-        start += 15; // 15 min interval
-      }
-      return slots;
-    }
-
-    function populateTimeOptions(selectedDate) {
-      const slots = generateTimeSlots();
-      timeSelect.innerHTML = '<option value="">Select a time slot</option>';
-
-      slots.forEach(slot => {
-        const option = document.createElement('option');
-        option.value = slot;
-        option.textContent = slot;
-
-        const isBooked = bookedSlots.some(b => b.date === selectedDate && b.time === slot);
-        if (isBooked) {
-          option.disabled = true;
-          option.classList.add('booked');
-          option.textContent += " (Booked)";
-        }
-
-        timeSelect.appendChild(option);
-      });
-    }
-
-    dateInput.addEventListener('change', () => {
-      const selectedDate = dateInput.value;
-      if (selectedDate) {
-        populateTimeOptions(selectedDate);
-      }
-    });
+    const URL = 'https://script.google.com/macros/s/AKfycbxJudXR8oSEIW3Y-OK46j0zuCHO_5Y0RNfmbBaXPB4ERae-cQL_9KfBO6V0-6DFii-DxA/exec'; // replace with your URL if different
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -109,47 +51,45 @@
         time: document.getElementById('time').value
       };
 
-      if (!data.time) {
-        status.textContent = "Please select a time slot.";
-        return;
-      }
-
       status.textContent = "Sending...";
 
       try {
-        const response = await fetch(scriptURL, {
+        await fetch(URL, {
           method: 'POST',
+          mode: 'no-cors',  // No need for CORS in POST request
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
 
-        const result = await response.json();
-
-        if (result.status === "success") {
-          status.textContent = "Booking Submitted! Please check your email.";
-          form.reset();
-          bookedSlots = []; // Reset booked slots, user should refresh manually
-        } else {
-          status.textContent = "Error: " + (result.message || "Unknown error");
-        }
+        status.textContent = "Booking Submitted! Please check your email.";
+        form.reset();
       } catch (error) {
         console.error(error);
         status.textContent = "Something went wrong!";
       }
     });
 
-    showSlotsButton.addEventListener('click', async () => {
+    loadSlotsBtn.addEventListener('click', async () => {
       slotsList.innerHTML = "Loading...";
-      await fetchBookedSlots();
-      if (bookedSlots.length === 0) {
-        slotsList.innerHTML = "<p>No bookings yet.</p>";
-        return;
-      }
-      slotsList.innerHTML = bookedSlots.map(slot => 
-        `<div class="booked-item">${slot.date} at ${slot.time}</div>`
-      ).join('');
-    });
 
+      try {
+        // Make a GET request to fetch the booked slots
+        const response = await fetch(URL + "?action=getSlots");
+
+        // Parse the response to get the data
+        const bookedSlots = await response.json();
+
+        if (bookedSlots && bookedSlots.length > 0) {
+          slotsList.innerHTML = bookedSlots.map(slot => `<div class="slot">${slot.date} at ${slot.time}</div>`).join('');
+        } else {
+          slotsList.innerHTML = "No slots booked yet.";
+        }
+
+      } catch (error) {
+        console.error(error);
+        slotsList.innerHTML = "Failed to load slots.";
+      }
+    });
   </script>
 
 </body>
