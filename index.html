@@ -183,4 +183,16 @@
 
         if (bookedSlots && bookedSlots.length > 0) {
           slotsList.innerHTML = bookedSlots.map(slot => `<div class="slot">${slot.date} at ${slot.time}</div>`).join('');
-        } else
+        } else {
+          slotsList.innerHTML = "No slots booked yet.";
+        }
+
+      } catch (error) {
+        console.error(error);
+        slotsList.innerHTML = "Failed to load slots.";
+      }
+    });
+  </script>
+
+</body>
+</html>
